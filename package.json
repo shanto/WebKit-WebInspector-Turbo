@@ -1,0 +1,34 @@
+{
+	"name": "webkit-webinspector-turbo",
+	"version": "1.0.0",
+	"description": "Optimized WebInspector build",
+	"keywords": [
+		"webkit",
+		"webinspector",
+		"safari",
+		"ios",
+		"debug"
+	],
+	"homepage": "https://github.com/shanto/WebKit-WebInspector-Turbo#readme",
+	"bugs": {
+		"url": "https://github.com/shanto/WebKit-WebInspector-Turbo/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/shanto/WebKit-WebInspector-Turbo.git"
+	},
+	"license": "ISC",
+	"author": "Shaan",
+	"type": "commonjs",
+	"main": "server.js",
+	"dependencies": {
+		"esbuild": "^0.25.6",
+		"esbuild-plugin-inline-image": "^0.0.9",
+		"espree": "^10.4.0"
+	},
+	"scripts": {
+		"bootstrap": "pwsh bootstrap.ps1",
+		"serve": "server.js",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	}
+}

@@ -1,0 +1,10 @@
+[submodule "WebKit"]
+	url = https://github.com/WebKit/WebKit.git
+	branch = 277a429ed5033cea98412fb473b93b53c4fca79e
+	update = none
+	ignore = all
+	shallow = true
+	path = WebKit
+[submodule "Debug-Kit"]
+	path = Debug-Kit
+	url = https://github.com/HimbeersaftLP/ios-safari-remote-debug-kit
