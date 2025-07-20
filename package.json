@@ -22,13 +22,16 @@
 	"type": "commonjs",
 	"main": "server.js",
 	"dependencies": {
+		"@lydell/node-pty": "^1.1.0",
 		"esbuild": "^0.25.6",
 		"esbuild-plugin-inline-image": "^0.0.9",
-		"espree": "^10.4.0"
+		"esprima-next": "^6.0.3",
+		"which": "^5.0.0"
 	},
 	"scripts": {
 		"bootstrap": "pwsh bootstrap.ps1",
-		"serve": "server.js",
+		"build": "node build.js",
+		"serve": "node server.js",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	}
 }

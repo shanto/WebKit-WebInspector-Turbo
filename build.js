@@ -1,13 +1,15 @@
-// TODO: Move to new layout
 const fs = require("fs");
+
 const esbuild = require("esbuild");
 const inlineImage = require("esbuild-plugin-inline-image");
 const path = require("path");
 
 const minJS = "Main.min.js";
 const minCSS = "Main.min.css";
+const minHTML = "Main.min.html";
 
-// 🧠 Replace on-disk entry generation with in-memory content
+process.chdir(process.cwd() + "/WebKit/Source/WebInspectorUI/UserInterface");
+
 async function generateEntries() {
 	const html = fs.readFileSync("Main.html", "utf-8");
 	const scriptRegex = /<script\s+src="([^"]+)"\s*>/g;
@@ -19,17 +21,21 @@ async function generateEntries() {
 	let match;
 	while ((match = scriptRegex.exec(html)) !== null) {
 		let file = match[1];
-		if (file == "Protocol/LoadInspectorBackendCommands.js") {
-			// TODO: Let user pick Protocol/LoadInspectorBackendCommands.js
-			file = "Protocol/InspectorBackendCommands.js";
+		const basename = path.basename(file);
+		if (["WebInspectorUIAdditions.js"].includes(basename)) {
+			continue;
 		}
-		if (!file.includes("WebInspectorUIAdditions.js")) {
-			jsPaths.push(file);
-		}
+		jsPaths.push(file);
 	}
+
+	jsPaths.push("External/Esprima/esprima.js");
 
 	while ((match = linkRegex.exec(html)) !== null) {
 		const file = match[1];
+		const basename = path.basename(file);
+		if (["WebInspectorUIAdditions.css"].includes(basename)) {
+			continue;
+		}
 		cssPaths.push(file);
 	}
 
@@ -74,8 +80,10 @@ const fixModules = {
 					break;
 				case "esprima.js":
 					patched = `
-				    import * as espree from 'espree';
-				    globalThis.esprima = espree;
+					// ${source};
+					// eval('globalThis.esprima = require_esprima()');
+					const esprima = require('esprima-next');
+					eval('globalThis.esprima = esprima');
 				    `;
 					break;
 			}
@@ -126,7 +134,12 @@ async function rewriteHtml(inputFile, outputFile, jsPath, cssPath) {
 	html = html.replace(/^[\s\t]*<link\s+rel="stylesheet"\s+href="[^"]*"\s*\/?>[\t\r\n]*/gm, "");
 
 	const injectBlock = `    <link rel="stylesheet" href="${cssPath}">\n    <script src="${jsPath}"></script>\n`;
-	html = html.replace(/<\/head>/, `${injectBlock}</head>`);
+	const injectCSS = `    <style> .tab-bar > .navigation-bar > .item.group > .item {height: 16px} .tab-bar > .navigation-bar > .item.group > .item.device-settings { display: none } </style>`;
+	[injectBlock, injectCSS].forEach((block) => {
+		html = html.replace(/<\/head>/, `${block}</head>`);
+	});
+
+	html = html.replace("; script-src ", "; script-src 'unsafe-eval' ");
 
 	while ((match = scriptBlockRegex.exec(html))) {
 		html = html.replace(`${match[0]}`, "");
@@ -246,20 +259,28 @@ const eslintGlobals = getEslintGlobals();
 	const allowGlobalsPlugin = allowEslintGlobalsPlugin(eslintGlobals);
 
 	// JS build
-	await esbuild.build({
-		stdin: {
-			contents: jsEntry,
-			resolveDir: process.cwd(),
-			loader: "js",
-			sourcefile: "main-entry.js",
-		},
-		bundle: true,
-		minify: false,
-		platform: "browser",
-		format: "iife",
-		outfile: minJS,
-		plugins: [inlineImage(), fixModules, allowGlobalsPlugin, absolutePathFix],
-	});
+	await esbuild
+		.build({
+			stdin: {
+				contents: jsEntry,
+				resolveDir: process.cwd(),
+				loader: "js",
+				sourcefile: "main-entry.js",
+			},
+			bundle: true,
+			minify: false,
+			write: false,
+			platform: "browser",
+			format: "iife",
+			outfile: minJS,
+			logLevel: "error",
+			plugins: [inlineImage(), fixModules, allowGlobalsPlugin, absolutePathFix],
+		})
+		.then((result) => {
+			const outJS = result.outputFiles.find((f) => f.path.endsWith(".js"));
+			fs.writeFileSync(minJS, outJS.contents);
+			console.log(`✅ Final JS written to ${minJS}`);
+		});
 
 	// CSS build
 	await esbuild
@@ -280,15 +301,16 @@ const eslintGlobals = getEslintGlobals();
 			},
 			assetNames: "assets/[name]-[hash]",
 			outfile: minCSS,
+			logLevel: "error",
 			plugins: [cssImageVarsPlugin(), absolutePathFix],
 		})
 		.then((result) => {
-			const out = result.outputFiles.find((f) => f.path.endsWith(".css"));
-			require("fs").writeFileSync(minCSS, out.contents);
+			const outCSS = result.outputFiles.find((f) => f.path.endsWith(".css"));
+			fs.writeFileSync(minCSS, outCSS.contents);
 			console.log(`✅ Final CSS written to ${minCSS}`);
 		});
 
-	await rewriteHtml("Main.html", "Main.min.html", minJS, minCSS);
+	await rewriteHtml("Main.html", minHTML, minJS, minCSS);
 
 	console.log("✅ All builds complete");
 })().catch((err) => {
